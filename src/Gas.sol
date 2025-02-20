@@ -1,25 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0; 
+pragma solidity ^0.8.25;
 
 import "./Ownable.sol";
 
-contract Constants {
-    uint256 public tradeFlag = 1;
-    uint256 public basicFlag = 0;
-    uint256 public dividendFlag = 1;
-}
-
-contract GasContract is Ownable, Constants {
+contract GasContract is Ownable {
+    uint8 public constant tradePercent = 12;
+    bool private wasLastOdd = true;
     uint256 public totalSupply = 0; // cannot be updated
     uint256 public paymentCounter = 0;
     mapping(address => uint256) public balances;
-    uint256 public tradePercent = 12;
     address public contractOwner;
     uint256 public tradeMode = 0;
     mapping(address => Payment[]) public payments;
     mapping(address => uint256) public whitelist;
     address[5] public administrators;
-    bool public isReady = false;
     enum PaymentType {
         Unknown,
         BasicPayment,
@@ -27,27 +21,25 @@ contract GasContract is Ownable, Constants {
         Dividend,
         GroupPayment
     }
-    PaymentType constant defaultPayment = PaymentType.Unknown;
 
     History[] public paymentHistory; // when a payment was updated
 
     struct Payment {
-        PaymentType paymentType;
         uint256 paymentID;
-        bool adminUpdated;
-        string recipientName; // max 8 characters
+        uint256 amount;
         address recipient;
         address admin; // administrators address
-        uint256 amount;
+        bytes8 recipientName; // max 8 characters
+        PaymentType paymentType;
+        bool adminUpdated;
     }
 
     struct History {
         uint256 lastUpdate;
-        address updatedBy;
         uint256 blockNumber;
+        address updatedBy;
     }
-    uint256 wasLastOdd = 1;
-    mapping(address => uint256) public isOddWhitelistUser;
+    mapping(address => bool) public isOddWhitelistUser;
     
     struct ImportantStruct {
         uint256 amount;
@@ -150,16 +142,6 @@ contract GasContract is Ownable, Constants {
         return balance;
     }
 
-    function getTradingMode() public view returns (bool mode_) {
-        bool mode = false;
-        if (tradeFlag == 1 || dividendFlag == 1) {
-            mode = true;
-        } else {
-            mode = false;
-        }
-        return mode;
-    }
-
 
     function addHistory(address _updateAddress, bool _tradeMode)
         public
@@ -212,7 +194,7 @@ contract GasContract is Ownable, Constants {
         payment.paymentType = PaymentType.BasicPayment;
         payment.recipient = _recipient;
         payment.amount = _amount;
-        payment.recipientName = _name;
+        payment.recipientName = bytes8(bytes(_name));
         payment.paymentID = ++paymentCounter;
         payments[senderOfTx].push(payment);
         bool[] memory status = new bool[](tradePercent);
@@ -249,13 +231,12 @@ contract GasContract is Ownable, Constants {
                 payments[_user][ii].admin = _user;
                 payments[_user][ii].paymentType = _type;
                 payments[_user][ii].amount = _amount;
-                bool tradingMode = getTradingMode();
-                addHistory(_user, tradingMode);
+                addHistory(_user, true);
                 emit PaymentUpdated(
                     senderOfTx,
                     _ID,
                     _amount,
-                    payments[_user][ii].recipientName
+                    string(abi.encodePacked(payments[_user][ii].recipientName))
                 );
             }
         }
@@ -280,16 +261,8 @@ contract GasContract is Ownable, Constants {
             whitelist[_userAddrs] -= _tier;
             whitelist[_userAddrs] = 2;
         }
-        uint256 wasLastAddedOdd = wasLastOdd;
-        if (wasLastAddedOdd == 1) {
-            wasLastOdd = 0;
-            isOddWhitelistUser[_userAddrs] = wasLastAddedOdd;
-        } else if (wasLastAddedOdd == 0) {
-            wasLastOdd = 1;
-            isOddWhitelistUser[_userAddrs] = wasLastAddedOdd;
-        } else {
-            revert("Contract hacked, imposible, call help");
-        }
+        wasLastOdd = !wasLastOdd;
+        isOddWhitelistUser[_userAddrs] = wasLastOdd;
         emit AddedToWhitelist(_userAddrs, _tier);
     }
 

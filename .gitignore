@@ -1,3 +1,6 @@
+# IDEs
+.idea
+
 # Compiler files
 cache/
 out/
@@ -26,3 +29,5 @@ docs/
 node_modules/.bin/
 
 node_modules/
+
+*.svg
