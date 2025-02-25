@@ -59,4 +59,5 @@ SR 3079070 - tradePercent constant changed to private.
 SR 3034071 - totalSupply, paymentCounter, contractOwner variables changed to private.
 SR 2946527 - payments mapping changed to private.
 SR 2766125 - reduce message lengths of all reverts and require conditions.
+SR 2750771 - addHistory function changed to private.
 ````

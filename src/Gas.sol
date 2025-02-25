@@ -117,7 +117,7 @@ contract GasContract is Ownable {
 
 
     function addHistory(address _updateAddress)
-      public
+      private
       returns (bool)
     {
       paymentHistory.push(
