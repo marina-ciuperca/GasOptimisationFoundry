@@ -41,4 +41,22 @@ MA 4243623 - changed recipientName from string to bytes8 and updated correspondi
 MA 4172245 - changes related to wasLastOdd, removing redundant duplicate variable, simplifying if/else condition, changing corresponding mapping
 MA 4175216 - optimised ImportantStruct
 MA 4150395 - did something but no idea what!
+SR 4089356 - short circuit onlyAdminOrOwner() modifier
+SR 4083736 - short circuit constructor
+SR 3991408 - refactor addHistory function; redundant input and return parameters, remove loop, remove temporary history variable
+SR 3972941 - remove unused tradeMode public variable
+SR 3864639 - refactor transfer function; remove loop and temporary payment variable.
+SR 3548222 - refactor updatePayment function; combine require statements and break from loop.
+SR 3478534 - refactor whiteTransfer function; combine require statements, cache whitelist tier and msg.sendervalues.
+SR 3477442 - balanceOf function; redundant balance variable.
+SR 3385411 - combine checkIfWhiteListed modifier userTier requires
+SR 3277035 - removed unused public getPaymentHistory getter.
+SR 3265126 - getPaymentStatus function; storage pointer to access the whiteListStruct mapping only once instead of twice.
+SR 3222658 - Store payment type as uint8 instead of enum. Removed enum.
+SR 3142432 - isOddWhitelistUser, whiteListStruct mappings changed to private.
+SR 3097037 - paymentHistory array changed to private.
+SR 3079070 - tradePercent constant changed to private.
+SR 3034071 - totalSupply, paymentCounter, contractOwner variables changed to private.
+SR 2946527 - payments mapping changed to private.
+SR 2766125 - reduce message lengths of all reverts and require conditions.
 ````
