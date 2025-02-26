@@ -9,26 +9,7 @@ contract GasContract is Ownable {
     uint256 private immutable totalSupply; 
     address[5] public administrators;
     mapping(address => uint256) public balances;
-    mapping(address => Payment[]) private payments;
     mapping(address => uint256) public whitelist;
-
-    History[] private paymentHistory; // when a payment was updated
-
-    struct Payment {
-        uint256 paymentID;
-        uint256 amount;
-        address recipient;
-        address admin; // administrators address
-        bytes8 recipientName; // max 8 characters
-        uint8 paymentType;
-        bool adminUpdated;
-    }
-
-    struct History {
-        uint256 lastUpdate;
-        uint256 blockNumber;
-        address updatedBy;
-    }
      struct ImportantStruct {
         uint256 amount;
         uint256 valueA; // max 3 digits
@@ -70,12 +51,6 @@ contract GasContract is Ownable {
 
     event supplyChanged(address indexed, uint256 indexed);
     event Transfer(address recipient, uint256 amount);
-    event PaymentUpdated(
-        address admin,
-        uint256 ID,
-        uint256 amount,
-        string recipient
-    );
     event WhiteListTransfer(address indexed);
 
     constructor(address[] memory _admins, uint256 _totalSupply) {
@@ -109,117 +84,83 @@ contract GasContract is Ownable {
         return balances[_user];
     }
 
-
-    function addHistory(address _updateAddress)
-      private
-      returns (bool)
-    {
-      paymentHistory.push(
-          History({
-              blockNumber: block.number,
-              lastUpdate: block.timestamp,
-              updatedBy: _updateAddress
-          })
-      );
-      return true;
-    }
-
-    function getPayments(address _user)
-        public
-        view
-        returns (Payment[] memory)
-    {
-        require(
-            _user != address(0),
-            "User must have a valid address"
-        );
-        return payments[_user];
-    }
-
     function transfer(
         address _recipient,
         uint256 _amount,
-        string calldata _name
-    ) public returns (bool status_) {
+        string memory _name
+    ) public returns (bool) {
         address senderOfTx = msg.sender;
-        require(
-            balances[senderOfTx] >= _amount,
-            "Insufficient sender Balance"
-        );
-        require(
-            bytes(_name).length < 9,
-            "Recipient name too long"
-        );
-        balances[senderOfTx] -= _amount;
-        balances[_recipient] += _amount;
-        emit Transfer(_recipient, _amount);
-
-         payments[senderOfTx].push(
-            Payment({
-                admin: address(0),
-                adminUpdated: false,
-                paymentType: 1,
-                recipient: _recipient,
-                amount: _amount,
-                recipientName: bytes8(bytes(_name)),
-                paymentID: ++paymentCounter
-            })
-        );
-        return true;
-    }
-
-    function updatePayment(
-        address _user,
-        uint256 _ID,
-        uint256 _amount,
-        uint8 _type
-    ) public onlyAdminOrOwner {
-        require(
-          _ID > 0 && _amount > 0 && _user != address(0),
-          "ID and amount mandatory and user address must be valid"
-        );
-
-        address senderOfTx = msg.sender;
-        Payment[] storage userPayments = payments[_user];
-        
-        for (uint256 ii = 0; ii < userPayments.length; ii++) {
-            if (userPayments[ii].paymentID == _ID) {
-                // replaces:
-                // Payment storage payment = userPayments[ii];
-                // payment.adminUpdated = true;
-                // payment.admin = _user;
-                // payment.paymentType = _type;
-                // payment.amount = _amount;
-                assembly {
-                    // Calculate the base slot for the Payment struct
-                    // First get the slot of userPayments[ii]
-                    let paymentSlot := add(sload(userPayments.slot), mul(ii, 7)) // 7 fields in Payment struct
-                    
-                    // Update adminUpdated (slot + 6)
-                    sstore(add(paymentSlot, 6), 1) // true
-                    
-                    // Update admin (slot + 3)
-                    sstore(add(paymentSlot, 3), _user)
-                    
-                    // Update paymentType (slot + 5)
-                    sstore(add(paymentSlot, 5), _type)
-                    
-                    // Update amount (slot + 1)
-                    sstore(add(paymentSlot, 1), _amount)
-                }
-                     
-                addHistory(_user);
-                
-                emit PaymentUpdated(
-                    senderOfTx,
-                    _ID,
-                    _amount,
-                    string(abi.encodePacked(userPayments[ii].recipientName))
-                );
-                
-                break;
+   
+        assembly {
+            // replaces:
+            // require(
+            //     balances[senderOfTx] >= _amount,
+            //     "Insufficient sender Balance"
+            // );
+            // Calculate storage slot for balances[senderOfTx]
+            mstore(0x00, senderOfTx)
+            mstore(0x20, balances.slot)
+            let balanceSlot := keccak256(0x00, 0x40)
+            
+            // Load balance
+            let senderBalance := sload(balanceSlot)
+            
+            // Check if balance < _amount
+            if lt(senderBalance, _amount) {
+                // Store error message in memory
+                mstore(0x00, 0x20)  // String offset
+                mstore(0x20, 0x19)  // String length (25 bytes)
+                mstore(0x40, 0x496e73756666696369656e742073656e64657220426)  // "Insufficient sender B"
+                mstore(0x60, 0x616c616e636500000000000000000000000000000000)  // "alance" + padding
+                revert(0x00, 0x80)  // Revert with error message
             }
         }
+       
+        assembly {
+            // replaces:
+            // require(
+            //    bytes(_name).length < 9,
+            //     "Recipient name too long"
+            // );
+            // Get the length of the string
+            // For a string parameter, the first word contains the length
+            let nameLength :=  mload(_name)
+            
+            // Check if length >= 9
+            if iszero(lt(nameLength, 9)) {
+                // Store error message in memory
+                mstore(0x00, 0x20)  // String offset
+                mstore(0x20, 0x15)  // String length (21 bytes)
+                mstore(0x40, 0x526563697069656e74206e616d6520746f6f206c6f6e67)  // "Recipient name too long"
+                mstore(0x60, 0x0000000000000000000000000000000000000000000000)  // padding
+                revert(0x00, 0x80)  // Revert with error message
+            }
+        }
+       
+         assembly {
+            // replaces:
+            // balances[senderOfTx] -= _amount;
+            // balances[_recipient] += _amount;
+            // Calculate storage slot for balances[senderOfTx]
+            mstore(0x00, senderOfTx)
+            mstore(0x20, balances.slot)
+            let senderBalanceSlot := keccak256(0x00, 0x40)
+            
+            // Calculate storage slot for balances[_recipient]
+            mstore(0x00, _recipient)
+            // balances.slot is already at 0x20
+            let recipientBalanceSlot := keccak256(0x00, 0x40)
+            
+            // Update sender balance (subtract _amount)
+            sstore(senderBalanceSlot, sub(sload(senderBalanceSlot), _amount))
+            
+            // Update recipient balance (add _amount)
+            sstore(recipientBalanceSlot, add(sload(recipientBalanceSlot), _amount))
+        }
+
+        emit Transfer(_recipient, _amount);
+
+        return true;
     }
 
     function addToWhitelist(address _userAddrs, uint256 _tier)
@@ -233,14 +174,11 @@ contract GasContract is Ownable {
 
         whitelist[_userAddrs] = _tier;
         if (_tier > 3) {
-            whitelist[_userAddrs] -= _tier;
-            whitelist[_userAddrs] = 3;
+          whitelist[_userAddrs] = 3;
         } else if (_tier == 1) {
-            whitelist[_userAddrs] -= _tier;
-            whitelist[_userAddrs] = 1;
+          whitelist[_userAddrs] = 1;
         } else if (_tier > 0 && _tier < 3) {
-            whitelist[_userAddrs] -= _tier;
-            whitelist[_userAddrs] = 2;
+          whitelist[_userAddrs] = 2;
         }
 
         emit AddedToWhitelist(_userAddrs, _tier);
@@ -261,35 +199,28 @@ contract GasContract is Ownable {
           //   "Invalid amount or insufficient balance"
           // );
           
-          // Check if _amount > 3
-          if iszero(gt(_amount, 3)) {
-            // Store error message in memory
-            mstore(0x00, 0x20)  // String offset
-            mstore(0x20, 0x26)  // String length (38 bytes)
-            mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)  // "Invalid amount or insuffici"
-            mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)    // "ent balance" + padding
-            revert(0x00, 0x80)  // Revert with error message
-          }
-            
           // Calculate storage slot for balances[senderOfTx]
           mstore(0x00, senderOfTx)
           mstore(0x20, balances.slot)
           let balanceSlot := keccak256(0x00, 0x40)
-            
-          // Load balance
-          let balanceAmount := sload(balanceSlot)
-            
-          // Check if balance >= _amount
-          if iszero(iszero(lt(balanceAmount, _amount))) {
-            // Same error message as above
-            mstore(0x00, 0x20)
-            mstore(0x20, 0x26)
-            mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)
-            mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)
-            revert(0x00, 0x80)
+          
+          // Load balance from balance slot
+          let balanceAmount := sload(keccak256(0x00, 0x40))
+          
+          // Check both conditions: _amount > 3 AND balanceAmount >= _amount
+          // If either fails, revert
+          if or(
+              iszero(gt(_amount, 3)),
+              lt(balanceAmount, _amount)
+          ) {
+              // Store error message in memory
+              mstore(0x00, 0x20)  // String offset
+              mstore(0x20, 0x26)  // String length (38 bytes)
+              mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)  // "Invalid amount or insuffici"
+              mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)    // "ent balance" + padding
+              revert(0x00, 0x80)  // Revert with error message
           }
 
-    
           // replaces:
           // uint256 tierValue = whitelist[senderOfTx];
           // uint256 tierValue = whitelist[senderOfTx];
@@ -297,12 +228,11 @@ contract GasContract is Ownable {
           // balances[_recipient] = balances[_recipient] + _amount - tierValue;
 
           // Calculate storage slot for whitelist[senderOfTx]
-          mstore(0x00, senderOfTx)
+          //mstore(0x00, senderOfTx) - senderOfTx is already at 0x00
           mstore(0x20, whitelist.slot)
-          let tierValueSlot := keccak256(0x00, 0x40)
             
-          // Load tierValue
-          let tierValue := sload(tierValueSlot)
+          // Load tierValue from tierValueSlot. 
+          let tierValue := sload(keccak256(0x00, 0x40))
 
           // Calculate storage slots for balances mapping
           mstore(0x00, senderOfTx)
