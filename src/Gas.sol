@@ -9,26 +9,7 @@ contract GasContract is Ownable {
     uint256 private immutable totalSupply; 
     address[5] public administrators;
     mapping(address => uint256) public balances;
-    mapping(address => Payment[]) private payments;
     mapping(address => uint256) public whitelist;
-
-    History[] private paymentHistory; // when a payment was updated
-
-    struct Payment {
-        uint256 paymentID;
-        uint256 amount;
-        address recipient;
-        address admin; // administrators address
-        bytes8 recipientName; // max 8 characters
-        uint8 paymentType;
-        bool adminUpdated;
-    }
-
-    struct History {
-        uint256 lastUpdate;
-        uint256 blockNumber;
-        address updatedBy;
-    }
      struct ImportantStruct {
         uint256 amount;
         uint256 valueA; // max 3 digits
@@ -70,12 +51,6 @@ contract GasContract is Ownable {
 
     event supplyChanged(address indexed, uint256 indexed);
     event Transfer(address recipient, uint256 amount);
-    event PaymentUpdated(
-        address admin,
-        uint256 ID,
-        uint256 amount,
-        string recipient
-    );
     event WhiteListTransfer(address indexed);
 
     constructor(address[] memory _admins, uint256 _totalSupply) {
@@ -107,33 +82,6 @@ contract GasContract is Ownable {
 
     function balanceOf(address _user) public view returns (uint256) {
         return balances[_user];
-    }
-
-
-    function addHistory(address _updateAddress)
-      private
-      returns (bool)
-    {
-      paymentHistory.push(
-          History({
-              blockNumber: block.number,
-              lastUpdate: block.timestamp,
-              updatedBy: _updateAddress
-          })
-      );
-      return true;
-    }
-
-    function getPayments(address _user)
-        public
-        view
-        returns (Payment[] memory)
-    {
-        require(
-            _user != address(0),
-            "User must have a valid address"
-        );
-        return payments[_user];
     }
 
     function transfer(
@@ -209,76 +157,10 @@ contract GasContract is Ownable {
             // Update recipient balance (add _amount)
             sstore(recipientBalanceSlot, add(sload(recipientBalanceSlot), _amount))
         }
-        
-        payments[senderOfTx].push(
-            Payment({
-                admin: address(0),
-                adminUpdated: false,
-                paymentType: 1,
-                recipient: _recipient,
-                amount: _amount,
-                recipientName: bytes8(bytes(_name)),
-                paymentID: ++paymentCounter
-            })
-        );
 
         emit Transfer(_recipient, _amount);
-        
+
         return true;
-    }
-
-    function updatePayment(
-        address _user,
-        uint256 _ID,
-        uint256 _amount,
-        uint8 _type
-    ) public onlyAdminOrOwner {
-        require(
-          _ID > 0 && _amount > 0 && _user != address(0),
-          "ID and amount mandatory and user address must be valid"
-        );
-
-        address senderOfTx = msg.sender;
-        Payment[] storage userPayments = payments[_user];
-        
-        for (uint256 ii = 0; ii < userPayments.length; ii++) {
-            if (userPayments[ii].paymentID == _ID) {
-                // replaces:
-                // Payment storage payment = userPayments[ii];
-                // payment.adminUpdated = true;
-                // payment.admin = _user;
-                // payment.paymentType = _type;
-                // payment.amount = _amount;
-                assembly {
-                    // Calculate the base slot for the Payment struct
-                    // First get the slot of userPayments[ii]
-                    let paymentSlot := add(sload(userPayments.slot), mul(ii, 7)) // 7 fields in Payment struct
-                    
-                    // Update adminUpdated (slot + 6)
-                    sstore(add(paymentSlot, 6), 1) // true
-                    
-                    // Update admin (slot + 3)
-                    sstore(add(paymentSlot, 3), _user)
-                    
-                    // Update paymentType (slot + 5)
-                    sstore(add(paymentSlot, 5), _type)
-                    
-                    // Update amount (slot + 1)
-                    sstore(add(paymentSlot, 1), _amount)
-                }
-                     
-                addHistory(_user);
-                
-                emit PaymentUpdated(
-                    senderOfTx,
-                    _ID,
-                    _amount,
-                    string(abi.encodePacked(userPayments[ii].recipientName))
-                );
-                
-                break;
-            }
-        }
     }
 
     function addToWhitelist(address _userAddrs, uint256 _tier)
