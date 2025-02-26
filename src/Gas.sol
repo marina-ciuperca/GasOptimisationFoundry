@@ -188,19 +188,37 @@ contract GasContract is Ownable {
         
         for (uint256 ii = 0; ii < userPayments.length; ii++) {
             if (userPayments[ii].paymentID == _ID) {
-                Payment storage payment = userPayments[ii];
-                payment.adminUpdated = true;
-                payment.admin = _user;
-                payment.paymentType = _type;
-                payment.amount = _amount;
-                
+                // replaces:
+                // Payment storage payment = userPayments[ii];
+                // payment.adminUpdated = true;
+                // payment.admin = _user;
+                // payment.paymentType = _type;
+                // payment.amount = _amount;
+                assembly {
+                    // Calculate the base slot for the Payment struct
+                    // First get the slot of userPayments[ii]
+                    let paymentSlot := add(sload(userPayments.slot), mul(ii, 7)) // 7 fields in Payment struct
+                    
+                    // Update adminUpdated (slot + 6)
+                    sstore(add(paymentSlot, 6), 1) // true
+                    
+                    // Update admin (slot + 3)
+                    sstore(add(paymentSlot, 3), _user)
+                    
+                    // Update paymentType (slot + 5)
+                    sstore(add(paymentSlot, 5), _type)
+                    
+                    // Update amount (slot + 1)
+                    sstore(add(paymentSlot, 1), _amount)
+                }
+                     
                 addHistory(_user);
                 
                 emit PaymentUpdated(
                     senderOfTx,
                     _ID,
                     _amount,
-                    string(abi.encodePacked(payment.recipientName))
+                    string(abi.encodePacked(userPayments[ii].recipientName))
                 );
                 
                 break;
