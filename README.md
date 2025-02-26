@@ -67,4 +67,5 @@ SR 2460106 - make totalSupply & contractOwner private contract variables immutab
 SR 2459674 - checkForAdmin return true instead of break from loop.
 SR 2351524 - addToWhitelist remove inefficient override of tier value assignment.
 SR 2335044 - refactor whiteTransfer function to combine assembly written require conditons.
+SR 2281520 - refactor transfer function to use assembly.
 ````

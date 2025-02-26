@@ -139,22 +139,78 @@ contract GasContract is Ownable {
     function transfer(
         address _recipient,
         uint256 _amount,
-        string calldata _name
-    ) public returns (bool status_) {
+        string memory _name
+    ) public returns (bool) {
         address senderOfTx = msg.sender;
-        require(
-            balances[senderOfTx] >= _amount,
-            "Insufficient sender Balance"
-        );
-        require(
-            bytes(_name).length < 9,
-            "Recipient name too long"
-        );
-        balances[senderOfTx] -= _amount;
-        balances[_recipient] += _amount;
-        emit Transfer(_recipient, _amount);
-
-         payments[senderOfTx].push(
+   
+        assembly {
+            // replaces:
+            // require(
+            //     balances[senderOfTx] >= _amount,
+            //     "Insufficient sender Balance"
+            // );
+            // Calculate storage slot for balances[senderOfTx]
+            mstore(0x00, senderOfTx)
+            mstore(0x20, balances.slot)
+            let balanceSlot := keccak256(0x00, 0x40)
+            
+            // Load balance
+            let senderBalance := sload(balanceSlot)
+            
+            // Check if balance < _amount
+            if lt(senderBalance, _amount) {
+                // Store error message in memory
+                mstore(0x00, 0x20)  // String offset
+                mstore(0x20, 0x19)  // String length (25 bytes)
+                mstore(0x40, 0x496e73756666696369656e742073656e64657220426)  // "Insufficient sender B"
+                mstore(0x60, 0x616c616e636500000000000000000000000000000000)  // "alance" + padding
+                revert(0x00, 0x80)  // Revert with error message
+            }
+        }
+       
+        assembly {
+            // replaces:
+            // require(
+            //    bytes(_name).length < 9,
+            //     "Recipient name too long"
+            // );
+            // Get the length of the string
+            // For a string parameter, the first word contains the length
+            let nameLength :=  mload(_name)
+            
+            // Check if length >= 9
+            if iszero(lt(nameLength, 9)) {
+                // Store error message in memory
+                mstore(0x00, 0x20)  // String offset
+                mstore(0x20, 0x15)  // String length (21 bytes)
+                mstore(0x40, 0x526563697069656e74206e616d6520746f6f206c6f6e67)  // "Recipient name too long"
+                mstore(0x60, 0x0000000000000000000000000000000000000000000000)  // padding
+                revert(0x00, 0x80)  // Revert with error message
+            }
+        }
+       
+         assembly {
+            // replaces:
+            // balances[senderOfTx] -= _amount;
+            // balances[_recipient] += _amount;
+            // Calculate storage slot for balances[senderOfTx]
+            mstore(0x00, senderOfTx)
+            mstore(0x20, balances.slot)
+            let senderBalanceSlot := keccak256(0x00, 0x40)
+            
+            // Calculate storage slot for balances[_recipient]
+            mstore(0x00, _recipient)
+            // balances.slot is already at 0x20
+            let recipientBalanceSlot := keccak256(0x00, 0x40)
+            
+            // Update sender balance (subtract _amount)
+            sstore(senderBalanceSlot, sub(sload(senderBalanceSlot), _amount))
+            
+            // Update recipient balance (add _amount)
+            sstore(recipientBalanceSlot, add(sload(recipientBalanceSlot), _amount))
+        }
+        
+        payments[senderOfTx].push(
             Payment({
                 admin: address(0),
                 adminUpdated: false,
@@ -165,6 +221,9 @@ contract GasContract is Ownable {
                 paymentID: ++paymentCounter
             })
         );
+
+        emit Transfer(_recipient, _amount);
+        
         return true;
     }
 
