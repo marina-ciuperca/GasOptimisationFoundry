@@ -243,63 +243,97 @@ contract GasContract is Ownable {
     ) public checkIfWhiteListed(msg.sender) {
         address senderOfTx = msg.sender;
         
-        require(
-            balances[senderOfTx] >= _amount && _amount > 3,
-            "Invalid amount or insufficient balance"
-        );
-        
-        uint256 tierValue = whitelist[senderOfTx];
-
         assembly {
-            // replaces:
-            // balances[senderOfTx] = balances[senderOfTx] - _amount + tierValue;
-            // balances[_recipient] = balances[_recipient] + _amount - tierValue;
+            
+          // replaces:
+          // require(
+          //   balances[senderOfTx] >= _amount && _amount > 3,
+          //   "Invalid amount or insufficient balance"
+          // );
+          
+          // Check if _amount > 3
+          if iszero(gt(_amount, 3)) {
+            // Store error message in memory
+            mstore(0x00, 0x20)  // String offset
+            mstore(0x20, 0x26)  // String length (38 bytes)
+            mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)  // "Invalid amount or insuffici"
+            mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)    // "ent balance" + padding
+            revert(0x00, 0x80)  // Revert with error message
+          }
+            
+          // Calculate storage slot for balances[senderOfTx]
+          mstore(0x00, senderOfTx)
+          mstore(0x20, balances.slot)
+          let balanceSlot := keccak256(0x00, 0x40)
+            
+          // Load balance
+          let balanceAmount := sload(balanceSlot)
+            
+          // Check if balance >= _amount
+          if iszero(iszero(lt(balanceAmount, _amount))) {
+            // Same error message as above
+            mstore(0x00, 0x20)
+            mstore(0x20, 0x26)
+            mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)
+            mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)
+            revert(0x00, 0x80)
+          }
 
-            // Calculate storage slots for balances mapping
-            // keccak256(abi.encode(address, uint256(balances.slot)))
-            mstore(0x00, senderOfTx)
-            mstore(0x20, balances.slot)
-            let senderBalanceSlot := keccak256(0x00, 0x40)
+    
+          // replaces:
+          // uint256 tierValue = whitelist[senderOfTx];
+          // uint256 tierValue = whitelist[senderOfTx];
+          // balances[senderOfTx] = balances[senderOfTx] - _amount + tierValue;
+          // balances[_recipient] = balances[_recipient] + _amount - tierValue;
+
+          // Calculate storage slot for whitelist[senderOfTx]
+          mstore(0x00, senderOfTx)
+          mstore(0x20, whitelist.slot)
+          let tierValueSlot := keccak256(0x00, 0x40)
             
-            mstore(0x00, _recipient)
-            // balances.slot is already at 0x20
-            let recipientBalanceSlot := keccak256(0x00, 0x40)
+          // Load tierValue
+          let tierValue := sload(tierValueSlot)
+
+          // Calculate storage slots for balances mapping
+          mstore(0x00, senderOfTx)
+          mstore(0x20, balances.slot)
+          let senderBalanceSlot := keccak256(0x00, 0x40)
             
-            // Redundant constants to load current balances
-            // let senderBalance := sload(senderBalanceSlot)
-            // let recipientBalance := sload(recipientBalanceSlot)
+          mstore(0x00, _recipient)
+          // balances.slot is already at 0x20
+          let recipientBalanceSlot := keccak256(0x00, 0x40)
             
-            // Update balances
-            sstore(senderBalanceSlot, sub(add(sload(senderBalanceSlot), tierValue), _amount))
-            sstore(recipientBalanceSlot, sub(add(sload(recipientBalanceSlot), _amount), tierValue))
-       
-       
-            // replaces: 
-            // whiteListStruct[senderOfTx] = ImportantStruct(_amount, 0, 0, 0, true, senderOfTx);
+          // Update balances
+          sstore(senderBalanceSlot, sub(add(sload(senderBalanceSlot), tierValue), _amount))
+          sstore(recipientBalanceSlot, sub(add(sload(recipientBalanceSlot), _amount), tierValue))
+
+        
+          // replaces: 
+          // whiteListStruct[senderOfTx] = ImportantStruct(_amount, 0, 0, 0, true, senderOfTx);
      
-            // Calculate storage slot for whiteListStruct[senderOfTx]
-            mstore(0x00, senderOfTx)
-            mstore(0x20, whiteListStruct.slot)
-            let structSlot := keccak256(0x00, 0x40)
+          // Calculate storage slot for whiteListStruct[senderOfTx]
+          mstore(0x00, senderOfTx)
+          mstore(0x20, whiteListStruct.slot)
+          let structSlot := keccak256(0x00, 0x40)
             
-            // Store struct fields in their respective slots
-            // ImportantStruct.amount = _amount (slot + 0)
-            sstore(structSlot, _amount)
+          // Store struct fields in their respective slots
+          // ImportantStruct.amount = _amount (slot + 0)
+          sstore(structSlot, _amount)
             
-            // ImportantStruct.valueA = 0 (slot + 1)
-            sstore(add(structSlot, 1), 0)
+          // ImportantStruct.valueA = 0 (slot + 1)
+          sstore(add(structSlot, 1), 0)
             
-            // ImportantStruct.bigValue = 0 (slot + 2)
-            sstore(add(structSlot, 2), 0)
+          // ImportantStruct.bigValue = 0 (slot + 2)
+          sstore(add(structSlot, 2), 0)
             
-            // ImportantStruct.valueB = 0 (slot + 3)
-            sstore(add(structSlot, 3), 0)
+          // ImportantStruct.valueB = 0 (slot + 3)
+          sstore(add(structSlot, 3), 0)
             
-            // ImportantStruct.paymentStatus = true (slot + 4)
-            sstore(add(structSlot, 4), 1)  // 1 for true
+          // ImportantStruct.paymentStatus = true (slot + 4)
+          sstore(add(structSlot, 4), 1)  // 1 for true
             
-            // ImportantStruct.sender = senderOfTx (slot + 5)
-            sstore(add(structSlot, 5), senderOfTx)
+          // ImportantStruct.sender = senderOfTx (slot + 5)
+          sstore(add(structSlot, 5), senderOfTx)
         }
         
         emit WhiteListTransfer(_recipient);
