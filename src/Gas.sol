@@ -258,47 +258,27 @@ contract GasContract is Ownable {
           //   "Invalid amount or insufficient balance"
           // );
           
-          // Check if _amount > 3
-          if iszero(gt(_amount, 3)) {
-            // Store error message in memory
-            mstore(0x00, 0x20)  // String offset
-            mstore(0x20, 0x26)  // String length (38 bytes)
-            mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)  // "Invalid amount or insuffici"
-            mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)    // "ent balance" + padding
-            revert(0x00, 0x80)  // Revert with error message
-          }
-            
           // Calculate storage slot for balances[senderOfTx]
           mstore(0x00, senderOfTx)
           mstore(0x20, balances.slot)
           let balanceSlot := keccak256(0x00, 0x40)
-            
-          // Load balance
-          let balanceAmount := sload(balanceSlot)
-            
-          // Check if balance >= _amount
-          if iszero(iszero(lt(balanceAmount, _amount))) {
-          // Same error message as above
-            mstore(0x00, 0x20)
-            mstore(0x20, 0x26)
-            mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)
-            mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)
-            revert(0x00, 0x80)
+          
+          // Load balance from balance slot
+          let balanceAmount := sload(keccak256(0x00, 0x40))
+          
+          // Check both conditions: _amount > 3 AND balanceAmount >= _amount
+          // If either fails, revert
+          if or(
+              iszero(gt(_amount, 3)),
+              lt(balanceAmount, _amount)
+          ) {
+              // Store error message in memory
+              mstore(0x00, 0x20)  // String offset
+              mstore(0x20, 0x26)  // String length (38 bytes)
+              mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)  // "Invalid amount or insuffici"
+              mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)    // "ent balance" + padding
+              revert(0x00, 0x80)  // Revert with error message
           }
-
-    // combines above into one assembly block - fails test. Order is wrong
-    // if or(
-    //     iszero(gt(_amount, 3)),
-    //     iszero(iszero(lt(sload(keccak256(0x00, 0x40)), _amount)))
-    // ) {
-    //     // Store error message in memory (only once)
-    //     mstore(0x00, 0x20)  // String offset
-    //     mstore(0x20, 0x26)  // String length (38 bytes)
-    //     mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)  
-    //     mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)
-    //     revert(0x00, 0x80)  // Revert with error message
-    // }
-
 
           // replaces:
           // uint256 tierValue = whitelist[senderOfTx];
@@ -307,10 +287,10 @@ contract GasContract is Ownable {
           // balances[_recipient] = balances[_recipient] + _amount - tierValue;
 
           // Calculate storage slot for whitelist[senderOfTx]
-          mstore(0x00, senderOfTx)
+          //mstore(0x00, senderOfTx) - senderOfTx is already at 0x00
           mstore(0x20, whitelist.slot)
             
-          // Load tierValue from tierValueSlot
+          // Load tierValue from tierValueSlot. 
           let tierValue := sload(keccak256(0x00, 0x40))
 
           // Calculate storage slots for balances mapping
