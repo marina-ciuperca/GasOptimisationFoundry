@@ -63,4 +63,5 @@ SR 2750771 - addHistory function changed to private.
 SR 2613088 - refactor whiteTransfer function to use assembly.
 SR 2553498 - remove unused isOddWhitelistUser
 SR 2508097 - refactor updatePayment function to use assembly.
+SR 2460106 - make totalSupply & contractOwner private contract variables immutable.
 ````

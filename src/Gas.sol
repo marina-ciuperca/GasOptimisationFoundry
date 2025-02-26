@@ -4,11 +4,9 @@ pragma solidity ^0.8.25;
 import "./Ownable.sol";
 
 contract GasContract is Ownable {
-    uint8 private constant tradePercent = 12;
-    bool private wasLastOdd = true;
-    uint256 private totalSupply = 0; // cannot be updated
     uint256 private paymentCounter = 0;
-    address private contractOwner;
+    address private immutable contractOwner;
+    uint256 private immutable totalSupply; 
     address[5] public administrators;
     mapping(address => uint256) public balances;
     mapping(address => Payment[]) private payments;
