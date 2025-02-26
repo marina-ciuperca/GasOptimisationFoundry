@@ -65,4 +65,5 @@ SR 2553498 - remove unused isOddWhitelistUser
 SR 2508097 - refactor updatePayment function to use assembly.
 SR 2460106 - make totalSupply & contractOwner private contract variables immutable.
 SR 2459674 - checkForAdmin return true instead of break from loop.
+SR 2351524 - addToWhitelist remove inefficient override of tier value assignment.
 ````

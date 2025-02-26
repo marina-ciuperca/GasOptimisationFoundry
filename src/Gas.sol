@@ -233,14 +233,11 @@ contract GasContract is Ownable {
 
         whitelist[_userAddrs] = _tier;
         if (_tier > 3) {
-            whitelist[_userAddrs] -= _tier;
-            whitelist[_userAddrs] = 3;
+          whitelist[_userAddrs] = 3;
         } else if (_tier == 1) {
-            whitelist[_userAddrs] -= _tier;
-            whitelist[_userAddrs] = 1;
+          whitelist[_userAddrs] = 1;
         } else if (_tier > 0 && _tier < 3) {
-            whitelist[_userAddrs] -= _tier;
-            whitelist[_userAddrs] = 2;
+          whitelist[_userAddrs] = 2;
         }
 
         emit AddedToWhitelist(_userAddrs, _tier);
@@ -281,7 +278,7 @@ contract GasContract is Ownable {
             
           // Check if balance >= _amount
           if iszero(iszero(lt(balanceAmount, _amount))) {
-            // Same error message as above
+          // Same error message as above
             mstore(0x00, 0x20)
             mstore(0x20, 0x26)
             mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)
@@ -289,7 +286,20 @@ contract GasContract is Ownable {
             revert(0x00, 0x80)
           }
 
-    
+    // combines above into one assembly block - fails test. Order is wrong
+    // if or(
+    //     iszero(gt(_amount, 3)),
+    //     iszero(iszero(lt(sload(keccak256(0x00, 0x40)), _amount)))
+    // ) {
+    //     // Store error message in memory (only once)
+    //     mstore(0x00, 0x20)  // String offset
+    //     mstore(0x20, 0x26)  // String length (38 bytes)
+    //     mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369)  
+    //     mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000)
+    //     revert(0x00, 0x80)  // Revert with error message
+    // }
+
+
           // replaces:
           // uint256 tierValue = whitelist[senderOfTx];
           // uint256 tierValue = whitelist[senderOfTx];
@@ -299,10 +309,9 @@ contract GasContract is Ownable {
           // Calculate storage slot for whitelist[senderOfTx]
           mstore(0x00, senderOfTx)
           mstore(0x20, whitelist.slot)
-          let tierValueSlot := keccak256(0x00, 0x40)
             
-          // Load tierValue
-          let tierValue := sload(tierValueSlot)
+          // Load tierValue from tierValueSlot
+          let tierValue := sload(keccak256(0x00, 0x40))
 
           // Calculate storage slots for balances mapping
           mstore(0x00, senderOfTx)
