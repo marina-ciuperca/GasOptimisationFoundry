@@ -96,14 +96,12 @@ contract GasContract is Ownable {
         }
     }
 
-    function checkForAdmin(address _user) public view returns (bool admin_) {
-        bool admin = false;
+    function checkForAdmin(address _user) public view returns (bool _admin) {
         for (uint256 ii = 0; ii < administrators.length; ii++) {
-            if (administrators[ii] == _user) {
-                admin = true;
-            }
+          if (administrators[ii] == _user) {
+            return true;
+          }
         }
-        return admin;
     }
 
 
