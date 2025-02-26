@@ -31,9 +31,7 @@ contract GasContract is Ownable {
         uint256 blockNumber;
         address updatedBy;
     }
-    mapping(address => bool) private isOddWhitelistUser;
-    
-    struct ImportantStruct {
+     struct ImportantStruct {
         uint256 amount;
         uint256 valueA; // max 3 digits
         uint256 bigValue;
@@ -231,8 +229,6 @@ contract GasContract is Ownable {
             whitelist[_userAddrs] = 2;
         }
 
-        wasLastOdd = !wasLastOdd;
-        isOddWhitelistUser[_userAddrs] = wasLastOdd;
         emit AddedToWhitelist(_userAddrs, _tier);
     }
 
@@ -347,7 +343,6 @@ contract GasContract is Ownable {
     receive() external payable {
         payable(msg.sender).transfer(msg.value);
     }
-
 
     fallback() external payable {
          payable(msg.sender).transfer(msg.value);
