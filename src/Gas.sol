@@ -120,9 +120,7 @@ contract GasContract is Ownable {
                 mstore(0x60, 0x616c616e636500000000000000000000000000000000) // "alance" + padding
                 revert(0x00, 0x80) // Revert with error message
             }
-        }
 
-        assembly {
             // replaces:
             // require(
             //    bytes(_name).length < 9,
@@ -141,24 +139,22 @@ contract GasContract is Ownable {
                 mstore(0x60, 0x0000000000000000000000000000000000000000000000) // padding
                 revert(0x00, 0x80) // Revert with error message
             }
-        }
 
-        assembly {
             // replaces:
             // balances[senderOfTx] -= _amount;
             // balances[_recipient] += _amount;
             // Calculate storage slot for balances[senderOfTx]
-            mstore(0x00, senderOfTx)
-            mstore(0x20, balances.slot)
-            let senderBalanceSlot := keccak256(0x00, 0x40)
+            // mstore(0x00, senderOfTx)
+            // mstore(0x20, balances.slot)
+            // let senderBalanceSlot := keccak256(0x00, 0x40)
 
             // Calculate storage slot for balances[_recipient]
             mstore(0x00, _recipient)
-            // balances.slot is already at 0x20
+            mstore(0x20, balances.slot)
             let recipientBalanceSlot := keccak256(0x00, 0x40)
 
             // Update sender balance (subtract _amount)
-            sstore(senderBalanceSlot, sub(sload(senderBalanceSlot), _amount))
+            sstore(balanceSlot, sub(sload(balanceSlot), _amount))
 
             // Update recipient balance (add _amount)
             sstore(recipientBalanceSlot, add(sload(recipientBalanceSlot), _amount))
@@ -229,16 +225,16 @@ contract GasContract is Ownable {
             let tierValue := sload(keccak256(0x00, 0x40))
 
             // Calculate storage slots for balances mapping
-            mstore(0x00, senderOfTx)
-            mstore(0x20, balances.slot)
-            let senderBalanceSlot := keccak256(0x00, 0x40)
+            // mstore(0x00, senderOfTx)
+            // mstore(0x20, balances.slot)
+            // let senderBalanceSlot := keccak256(0x00, 0x40)
 
             mstore(0x00, _recipient)
-            // balances.slot is already at 0x20
+            mstore(0x20, balances.slot)
             let recipientBalanceSlot := keccak256(0x00, 0x40)
 
             // Update balances
-            sstore(senderBalanceSlot, sub(add(sload(senderBalanceSlot), tierValue), _amount))
+            sstore(balanceSlot, sub(add(sload(balanceSlot), tierValue), _amount))
             sstore(recipientBalanceSlot, sub(add(sload(recipientBalanceSlot), _amount), tierValue))
 
             // replaces:
