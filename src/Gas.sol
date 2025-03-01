@@ -191,7 +191,7 @@ contract GasContract is Ownable {
             let balanceSlot := keccak256(0x00, 0x40)
 
             // Load balance from balance slot
-            let balanceAmount := sload(keccak256(0x00, 0x40))
+            let balanceAmount := sload(balanceSlot)
 
             // Check both conditions: _amount > 3 AND balanceAmount >= _amount
             // If either fails, revert
@@ -218,16 +218,17 @@ contract GasContract is Ownable {
             let tierValue := sload(keccak256(0x00, 0x40))
 
             // Calculate storage slots for balances mapping
-            mstore(0x00, senderOfTx)
-            mstore(0x20, balances.slot)
-            let senderBalanceSlot := keccak256(0x00, 0x40)
+            // senderBalanceSlot can be replaced with balanceSlot
+            // mstore(0x00, senderOfTx)
+            // mstore(0x20, balances.slot)
+            // let senderBalanceSlot := keccak256(0x00, 0x40)
 
             mstore(0x00, _recipient)
-            // balances.slot is already at 0x20
+            mstore(0x20, balances.slot)
             let recipientBalanceSlot := keccak256(0x00, 0x40)
 
             // Update balances
-            sstore(senderBalanceSlot, sub(add(sload(senderBalanceSlot), tierValue), _amount))
+            sstore(balanceSlot, sub(add(sload(balanceSlot), tierValue), _amount))
             sstore(recipientBalanceSlot, sub(add(sload(recipientBalanceSlot), _amount), tierValue))
 
             // replaces:
