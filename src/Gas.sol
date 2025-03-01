@@ -45,9 +45,13 @@ contract GasContract is Ownable {
 
     modifier checkIfWhiteListed(address sender) {
         address senderOfTx = msg.sender;
-        require(senderOfTx == sender, "originator not sender");
+        if (senderOfTx != sender) {
+            revert OriginatorNotSender();
+        }
         uint256 usersTier = whitelist[senderOfTx];
-        require(usersTier > 0 && usersTier < 4, "user not whitelisted or invalid tier");
+        if (usersTier <= 0 || usersTier > 3) {
+            revert UserNotWhitelistedOrInvalidTier();
+        }
         _;
     }
 
@@ -96,7 +100,8 @@ contract GasContract is Ownable {
 
     function transfer(address _recipient, uint256 _amount, string memory _name) public returns (bool) {
         address senderOfTx = msg.sender;
-
+        bytes4 INSUFFICIENT_SENDER_BALANCE_SELECTOR = bytes4(keccak256("InsufficientSenderBalance()"));
+        bytes4 RECIPIENT_NAME_TOO_LONG_SELECTOR = bytes4(keccak256("RecipientNameTooLong()"));
         assembly {
             // replaces:
             // require(
@@ -114,11 +119,8 @@ contract GasContract is Ownable {
             // Check if balance < _amount
             if lt(senderBalance, _amount) {
                 // Store error message in memory
-                mstore(0x00, 0x20) // String offset
-                mstore(0x20, 0x19) // String length (25 bytes)
-                mstore(0x40, 0x496e73756666696369656e742073656e64657220426) // "Insufficient sender B"
-                mstore(0x60, 0x616c616e636500000000000000000000000000000000) // "alance" + padding
-                revert(0x00, 0x80) // Revert with error message
+                mstore(0x00, INSUFFICIENT_SENDER_BALANCE_SELECTOR)
+                revert(0x00, 0x04)
             }
 
             // replaces:
@@ -132,12 +134,8 @@ contract GasContract is Ownable {
 
             // Check if length >= 9
             if iszero(lt(nameLength, 9)) {
-                // Store error message in memory
-                mstore(0x00, 0x20) // String offset
-                mstore(0x20, 0x15) // String length (21 bytes)
-                mstore(0x40, 0x526563697069656e74206e616d6520746f6f206c6f6e67) // "Recipient name too long"
-                mstore(0x60, 0x0000000000000000000000000000000000000000000000) // padding
-                revert(0x00, 0x80) // Revert with error message
+                mstore(0x00, RECIPIENT_NAME_TOO_LONG_SELECTOR)
+                revert(0x00, 0x04)
             }
 
             // replaces:
@@ -184,6 +182,8 @@ contract GasContract is Ownable {
 
     function whiteTransfer(address _recipient, uint256 _amount) public checkIfWhiteListed(msg.sender) {
         address senderOfTx = msg.sender;
+        bytes4 INVALID_AMOUNT_OR_INSUFFICIENT_BALANCE_SELECTOR =
+            bytes4(keccak256("InvalidAmountOrInsufficientBalance()"));
 
         assembly {
             // replaces:
@@ -202,13 +202,10 @@ contract GasContract is Ownable {
 
             // Check both conditions: _amount > 3 AND balanceAmount >= _amount
             // If either fails, revert
+            // InvalidAmountOrInsufficientBalance
             if or(iszero(gt(_amount, 3)), lt(balanceAmount, _amount)) {
-                // Store error message in memory
-                mstore(0x00, 0x20) // String offset
-                mstore(0x20, 0x26) // String length (38 bytes)
-                mstore(0x40, 0x496e76616c696420616d6f756e74206f7220696e73756666696369) // "Invalid amount or insuffici"
-                mstore(0x60, 0x656e742062616c616e6365000000000000000000000000000000) // "ent balance" + padding
-                revert(0x00, 0x80) // Revert with error message
+                mstore(0x00, INVALID_AMOUNT_OR_INSUFFICIENT_BALANCE_SELECTOR)
+                revert(0x00, 0x04)
             }
 
             // replaces:
