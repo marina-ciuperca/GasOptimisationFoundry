@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import "./Ownable.sol";
 
 contract GasContract is Ownable {
-    uint256 private paymentCounter = 0;
     address private immutable contractOwner;
     uint256 private immutable totalSupply;
     address[5] public administrators;
