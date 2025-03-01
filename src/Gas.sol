@@ -51,17 +51,25 @@ contract GasContract is Ownable {
         contractOwner = msg.sender;
         totalSupply = _totalSupply;
 
-        for (uint256 i = 0; i < administrators.length; i++) {
+        balances[contractOwner] = totalSupply;
+        emit supplyChanged(contractOwner, totalSupply);
+
+        uint256 adminsLength = administrators.length;
+
+        for (uint256 i = 0; i < adminsLength;) {
             address currentAdmin = _admins[i];
+
             if (currentAdmin != address(0)) {
                 administrators[i] = currentAdmin;
-                if (currentAdmin == contractOwner) {
-                    balances[contractOwner] = totalSupply;
-                    emit supplyChanged(contractOwner, totalSupply);
-                } else {
+
+                if (currentAdmin != contractOwner) {
                     balances[currentAdmin] = 0;
                     emit supplyChanged(currentAdmin, 0);
                 }
+            }
+
+            unchecked {
+                ++i;
             }
         }
     }
