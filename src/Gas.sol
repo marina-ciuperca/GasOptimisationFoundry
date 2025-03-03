@@ -116,8 +116,6 @@ contract GasContract {
                 // Store error message in memory
                 mstore(0x00, INSUFFICIENT_SENDER_BALANCE_SELECTOR)
                 revert(0x00, 0x04)
-                mstore(0x00, INSUFFICIENT_SENDER_BALANCE_SELECTOR)
-                revert(0x00, 0x04)
             }
 
             // replaces:
