@@ -75,6 +75,9 @@ contract GasContract {
             if (administrators[ii] == _user) {
                 return true;
             }
+            if (administrators[ii] == _user) {
+                return true;
+            }
         }
     }
 
@@ -111,6 +114,8 @@ contract GasContract {
             // Check if balance < _amount
             if lt(senderBalance, _amount) {
                 // Store error message in memory
+                mstore(0x00, INSUFFICIENT_SENDER_BALANCE_SELECTOR)
+                revert(0x00, 0x04)
                 mstore(0x00, INSUFFICIENT_SENDER_BALANCE_SELECTOR)
                 revert(0x00, 0x04)
             }
@@ -158,23 +163,6 @@ contract GasContract {
         return true;
     }
 
-    // function addToWhitelist(address _userAddrs, uint256 _tier) public onlyAdminOrOwner {
-    //     if (_tier >= 255) {
-    //         revert TierLevelExceeds255();
-    //     }
-
-    //     whitelist[_userAddrs] = _tier;
-    //     if (_tier > 3) {
-    //         whitelist[_userAddrs] = 3;
-    //     } else if (_tier == 1) {
-    //         whitelist[_userAddrs] = 1;
-    //     } else if (_tier > 0 && _tier < 3) {
-    //         whitelist[_userAddrs] = 2;
-    //     }
-
-    //     emit AddedToWhitelist(_userAddrs, _tier);
-    // }
-
     function addToWhitelist(
         address _userAddrs,
         uint256 _tier
@@ -190,7 +178,6 @@ contract GasContract {
         address _recipient,
         uint256 _amount
     ) public checkIfWhiteListed {
-        // msg.sender rendundant
         address senderOfTx = msg.sender;
         bytes4 INVALID_AMOUNT_OR_INSUFFICIENT_BALANCE_SELECTOR = bytes4(
             keccak256("InvalidAmountOrInsufficientBalance()")
