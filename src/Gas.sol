@@ -3,16 +3,17 @@ pragma solidity ^0.8.25;
 
 //import "./Ownable.sol";
 
-contract GasContract { //is Ownable removed the inheritance as it doesn't use it
-    
+contract GasContract {
+    //is Ownable removed the inheritance as it doesn't use it
+
     error InsufficientBalance(); // "Insufficient sender Balance"
     error RecipientNameTooLong(); // "Recipient name too long"
     error InvalidAmountOrInsufficientBalance(); // "Invalid amount or insufficient balance"
- 	error NotAuthorized();
-	error NotWhitelisted();
-	error InvalidTierLevel();
+    error NotAuthorized();
+    error NotWhitelisted();
+    error InvalidTierLevel();
     error DirectETHTransfersNotAllowed(); // receive custom error
-	error FallbackNotImplemented(); //fallback custom error
+    error FallbackNotImplemented(); //fallback custom error
 
     address private immutable contractOwner;
     uint256 private immutable totalSupply;
@@ -33,36 +34,42 @@ contract GasContract { //is Ownable removed the inheritance as it doesn't use it
 
     event AddedToWhitelist(address userAddress, uint256 tier);
 
-    modifier onlyAdminOrOwner() { //optimized the modifier
-    if (msg.sender != contractOwner && !checkForAdmin(msg.sender)) revert NotAuthorized();
-    _;
-} 
-    
-	modifier checkIfWhiteListed() { //optimized the modifier. Address sender is unused
-    if (whitelist[msg.sender] == 0 || whitelist[msg.sender] >= 4) revert NotWhitelisted();
-    _;
-}
+    modifier onlyAdminOrOwner() {
+        //optimized the modifier
+        if (msg.sender != contractOwner && !checkForAdmin(msg.sender))
+            revert NotAuthorized();
+        _;
+    }
+
+    modifier checkIfWhiteListed() {
+        //optimized the modifier. Address sender is unused
+        if (whitelist[msg.sender] == 0 || whitelist[msg.sender] >= 4)
+            revert NotWhitelisted();
+        _;
+    }
 
     event supplyChanged(address indexed, uint256 indexed);
     event Transfer(address recipient, uint256 amount);
     event WhiteListTransfer(address indexed);
 
-    
-	constructor(address[] memory _admins, uint256 _totalSupply) { //optimized constructor
-    contractOwner = msg.sender;
-    totalSupply = _totalSupply;
+    constructor(address[] memory _admins, uint256 _totalSupply) {
+        //optimized constructor
+        contractOwner = msg.sender;
+        totalSupply = _totalSupply;
 
-    unchecked {  //  Skips overflow checks (safe for i < 5)
-        for (uint256 i; i < 5; i++) {
-            address admin = _admins[i];
-            if (admin != address(0)) {  
-                administrators[i] = admin;
-                
-                balances[admin] = (admin == msg.sender) ? _totalSupply : 0;
+        unchecked {
+            //  Skips overflow checks (safe for i < 5)
+            for (uint256 i; i < 5; i++) {
+                address admin = _admins[i];
+                if (admin != address(0)) {
+                    administrators[i] = admin;
+
+                    balances[admin] = (admin == msg.sender) ? _totalSupply : 0;
+                }
             }
         }
     }
-}
+
     function checkForAdmin(address _user) public view returns (bool _admin) {
         for (uint256 ii = 0; ii < administrators.length; ii++) {
             if (administrators[ii] == _user) {
@@ -75,10 +82,18 @@ contract GasContract { //is Ownable removed the inheritance as it doesn't use it
         return balances[_user];
     }
 
-    function transfer(address _recipient, uint256 _amount, string memory _name) public returns (bool) {
+    function transfer(
+        address _recipient,
+        uint256 _amount,
+        string memory _name
+    ) public returns (bool) {
         address senderOfTx = msg.sender;
-        bytes4 INSUFFICIENT_SENDER_BALANCE_SELECTOR = bytes4(keccak256("InsufficientSenderBalance()"));
-        bytes4 RECIPIENT_NAME_TOO_LONG_SELECTOR = bytes4(keccak256("RecipientNameTooLong()"));
+        bytes4 INSUFFICIENT_SENDER_BALANCE_SELECTOR = bytes4(
+            keccak256("InsufficientSenderBalance()")
+        );
+        bytes4 RECIPIENT_NAME_TOO_LONG_SELECTOR = bytes4(
+            keccak256("RecipientNameTooLong()")
+        );
         assembly {
             // replaces:
             // require(
@@ -132,7 +147,10 @@ contract GasContract { //is Ownable removed the inheritance as it doesn't use it
             sstore(balanceSlot, sub(sload(balanceSlot), _amount))
 
             // Update recipient balance (add _amount)
-            sstore(recipientBalanceSlot, add(sload(recipientBalanceSlot), _amount))
+            sstore(
+                recipientBalanceSlot,
+                add(sload(recipientBalanceSlot), _amount)
+            )
         }
 
         emit Transfer(_recipient, _amount);
@@ -157,17 +175,26 @@ contract GasContract { //is Ownable removed the inheritance as it doesn't use it
     //     emit AddedToWhitelist(_userAddrs, _tier);
     // }
 
-  function addToWhitelist(address _userAddrs, uint256 _tier) public onlyAdminOrOwner { //optimized the modifier. Msg.sender is redundant
-       if (_tier >= 255) revert InvalidTierLevel();
-	uint256 assignedTier = _tier > 3 ? 3 : (_tier == 1 ? 1 : 2);
-	whitelist[_userAddrs] = assignedTier;
-	emit AddedToWhitelist(_userAddrs, _tier);
+    function addToWhitelist(
+        address _userAddrs,
+        uint256 _tier
+    ) public onlyAdminOrOwner {
+        //optimized the modifier. Msg.sender is redundant
+        if (_tier >= 255) revert InvalidTierLevel();
+        uint256 assignedTier = _tier > 3 ? 3 : (_tier == 1 ? 1 : 2);
+        whitelist[_userAddrs] = assignedTier;
+        emit AddedToWhitelist(_userAddrs, _tier);
     }
 
-    function whiteTransfer(address _recipient, uint256 _amount) public checkIfWhiteListed() { // msg.sender rendundant
+    function whiteTransfer(
+        address _recipient,
+        uint256 _amount
+    ) public checkIfWhiteListed {
+        // msg.sender rendundant
         address senderOfTx = msg.sender;
-        bytes4 INVALID_AMOUNT_OR_INSUFFICIENT_BALANCE_SELECTOR =
-            bytes4(keccak256("InvalidAmountOrInsufficientBalance()"));
+        bytes4 INVALID_AMOUNT_OR_INSUFFICIENT_BALANCE_SELECTOR = bytes4(
+            keccak256("InvalidAmountOrInsufficientBalance()")
+        );
 
         assembly {
             // replaces:
@@ -215,8 +242,14 @@ contract GasContract { //is Ownable removed the inheritance as it doesn't use it
             let recipientBalanceSlot := keccak256(0x00, 0x40)
 
             // Update balances
-            sstore(balanceSlot, sub(add(sload(balanceSlot), tierValue), _amount))
-            sstore(recipientBalanceSlot, sub(add(sload(recipientBalanceSlot), _amount), tierValue))
+            sstore(
+                balanceSlot,
+                sub(add(sload(balanceSlot), tierValue), _amount)
+            )
+            sstore(
+                recipientBalanceSlot,
+                sub(add(sload(recipientBalanceSlot), _amount), tierValue)
+            )
 
             // replaces:
             // whiteListStruct[senderOfTx] = ImportantStruct(_amount, 0, 0, 0, true, senderOfTx);
@@ -249,18 +282,20 @@ contract GasContract { //is Ownable removed the inheritance as it doesn't use it
         emit WhiteListTransfer(_recipient);
     }
 
-    function getPaymentStatus(address sender) public view returns (bool, uint256) {
+    function getPaymentStatus(
+        address sender
+    ) public view returns (bool, uint256) {
         ImportantStruct storage userStruct = whiteListStruct[sender];
         return (userStruct.paymentStatus, userStruct.amount);
     }
 
+    receive() external payable {
+        // optimized receive() to avoid possible exploits
+        revert DirectETHTransfersNotAllowed();
+    }
 
-receive() external payable { // optimized receive() to avoid possible exploits
-    revert DirectETHTransfersNotAllowed();
-}
-
-fallback() external payable { // optimized receive() to avoid possible exploits
-    revert FallbackNotImplemented();
-}
-
+    fallback() external payable {
+        // optimized fallback() to avoid possible exploits
+        revert FallbackNotImplemented();
+    }
 }
