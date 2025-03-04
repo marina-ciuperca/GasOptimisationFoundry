@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.25;
 
-import "./Ownable.sol";
+//import "./Ownable.sol";
 
-contract GasContract is Ownable {
-    // Define custom error types
+contract GasContract {
+    //is Ownable removed the inheritance as it doesn't use it
+
     error InsufficientBalance(); // "Insufficient sender Balance"
     error RecipientNameTooLong(); // "Recipient name too long"
     error InvalidAmountOrInsufficientBalance(); // "Invalid amount or insufficient balance"
-    error NotAdminOrOwner(); // "Transaction originator not admin or contract owner"
-    error OriginatorNotSender(); // "originator not sender"
-    error UserNotWhitelistedOrInvalidTier(); // "user not whitelisted or invalid tier"
-    error TierLevelExceeds255(); // "Tier level not exceed 255"
+    error NotAuthorized();
+    error NotWhitelisted();
+    error InvalidTierLevel();
+    error DirectETHTransfersNotAllowed(); // receive custom error
+    error FallbackNotImplemented(); //fallback custom error
 
     address private immutable contractOwner;
     uint256 private immutable totalSupply;
@@ -33,25 +35,16 @@ contract GasContract is Ownable {
     event AddedToWhitelist(address userAddress, uint256 tier);
 
     modifier onlyAdminOrOwner() {
-        address senderOfTx = msg.sender;
-        if (checkForAdmin(senderOfTx)) {
-            _;
-        } else if (senderOfTx == contractOwner) {
-            _;
-        } else {
-            revert NotAdminOrOwner();
-        }
+        //optimized the modifier
+        if (msg.sender != contractOwner && !checkForAdmin(msg.sender))
+            revert NotAuthorized();
+        _;
     }
 
-    modifier checkIfWhiteListed(address sender) {
-        address senderOfTx = msg.sender;
-        if (senderOfTx != sender) {
-            revert OriginatorNotSender();
-        }
-        uint256 usersTier = whitelist[senderOfTx];
-        if (usersTier <= 0 || usersTier > 3) {
-            revert UserNotWhitelistedOrInvalidTier();
-        }
+    modifier checkIfWhiteListed() {
+        //optimized the modifier. Address sender is unused
+        if (whitelist[msg.sender] == 0 || whitelist[msg.sender] >= 4)
+            revert NotWhitelisted();
         _;
     }
 
@@ -60,34 +53,28 @@ contract GasContract is Ownable {
     event WhiteListTransfer(address indexed);
 
     constructor(address[] memory _admins, uint256 _totalSupply) {
+        //optimized constructor
         contractOwner = msg.sender;
         totalSupply = _totalSupply;
 
-        balances[contractOwner] = totalSupply;
-        emit supplyChanged(contractOwner, totalSupply);
+        unchecked {
+            //  Skips overflow checks (safe for i < 5)
+            for (uint256 i; i < 5; i++) {
+                address admin = _admins[i];
+                if (admin != address(0)) {
+                    administrators[i] = admin;
 
-        uint256 adminsLength = administrators.length;
-
-        for (uint256 i = 0; i < adminsLength;) {
-            address currentAdmin = _admins[i];
-
-            if (currentAdmin != address(0)) {
-                administrators[i] = currentAdmin;
-
-                if (currentAdmin != contractOwner) {
-                    balances[currentAdmin] = 0;
-                    emit supplyChanged(currentAdmin, 0);
+                    balances[admin] = (admin == msg.sender) ? _totalSupply : 0;
                 }
-            }
-
-            unchecked {
-                ++i;
             }
         }
     }
 
     function checkForAdmin(address _user) public view returns (bool _admin) {
         for (uint256 ii = 0; ii < administrators.length; ii++) {
+            if (administrators[ii] == _user) {
+                return true;
+            }
             if (administrators[ii] == _user) {
                 return true;
             }
@@ -98,10 +85,18 @@ contract GasContract is Ownable {
         return balances[_user];
     }
 
-    function transfer(address _recipient, uint256 _amount, string memory _name) public returns (bool) {
+    function transfer(
+        address _recipient,
+        uint256 _amount,
+        string memory _name
+    ) public returns (bool) {
         address senderOfTx = msg.sender;
-        bytes4 INSUFFICIENT_SENDER_BALANCE_SELECTOR = bytes4(keccak256("InsufficientSenderBalance()"));
-        bytes4 RECIPIENT_NAME_TOO_LONG_SELECTOR = bytes4(keccak256("RecipientNameTooLong()"));
+        bytes4 INSUFFICIENT_SENDER_BALANCE_SELECTOR = bytes4(
+            keccak256("InsufficientSenderBalance()")
+        );
+        bytes4 RECIPIENT_NAME_TOO_LONG_SELECTOR = bytes4(
+            keccak256("RecipientNameTooLong()")
+        );
         assembly {
             // replaces:
             // require(
@@ -155,7 +150,10 @@ contract GasContract is Ownable {
             sstore(balanceSlot, sub(sload(balanceSlot), _amount))
 
             // Update recipient balance (add _amount)
-            sstore(recipientBalanceSlot, add(sload(recipientBalanceSlot), _amount))
+            sstore(
+                recipientBalanceSlot,
+                add(sload(recipientBalanceSlot), _amount)
+            )
         }
 
         emit Transfer(_recipient, _amount);
@@ -163,27 +161,25 @@ contract GasContract is Ownable {
         return true;
     }
 
-    function addToWhitelist(address _userAddrs, uint256 _tier) public onlyAdminOrOwner {
-        if (_tier >= 255) {
-            revert TierLevelExceeds255();
-        }
-
-        whitelist[_userAddrs] = _tier;
-        if (_tier > 3) {
-            whitelist[_userAddrs] = 3;
-        } else if (_tier == 1) {
-            whitelist[_userAddrs] = 1;
-        } else if (_tier > 0 && _tier < 3) {
-            whitelist[_userAddrs] = 2;
-        }
-
+    function addToWhitelist(
+        address _userAddrs,
+        uint256 _tier
+    ) public onlyAdminOrOwner {
+        //optimized the modifier. Msg.sender is redundant
+        if (_tier >= 255) revert InvalidTierLevel();
+        uint256 assignedTier = _tier > 3 ? 3 : (_tier == 1 ? 1 : 2);
+        whitelist[_userAddrs] = assignedTier;
         emit AddedToWhitelist(_userAddrs, _tier);
     }
 
-    function whiteTransfer(address _recipient, uint256 _amount) public checkIfWhiteListed(msg.sender) {
+    function whiteTransfer(
+        address _recipient,
+        uint256 _amount
+    ) public checkIfWhiteListed {
         address senderOfTx = msg.sender;
-        bytes4 INVALID_AMOUNT_OR_INSUFFICIENT_BALANCE_SELECTOR =
-            bytes4(keccak256("InvalidAmountOrInsufficientBalance()"));
+        bytes4 INVALID_AMOUNT_OR_INSUFFICIENT_BALANCE_SELECTOR = bytes4(
+            keccak256("InvalidAmountOrInsufficientBalance()")
+        );
 
         assembly {
             // replaces:
@@ -231,8 +227,14 @@ contract GasContract is Ownable {
             let recipientBalanceSlot := keccak256(0x00, 0x40)
 
             // Update balances
-            sstore(balanceSlot, sub(add(sload(balanceSlot), tierValue), _amount))
-            sstore(recipientBalanceSlot, sub(add(sload(recipientBalanceSlot), _amount), tierValue))
+            sstore(
+                balanceSlot,
+                sub(add(sload(balanceSlot), tierValue), _amount)
+            )
+            sstore(
+                recipientBalanceSlot,
+                sub(add(sload(recipientBalanceSlot), _amount), tierValue)
+            )
 
             // replaces:
             // whiteListStruct[senderOfTx] = ImportantStruct(_amount, 0, 0, 0, true, senderOfTx);
@@ -265,16 +267,20 @@ contract GasContract is Ownable {
         emit WhiteListTransfer(_recipient);
     }
 
-    function getPaymentStatus(address sender) public view returns (bool, uint256) {
+    function getPaymentStatus(
+        address sender
+    ) public view returns (bool, uint256) {
         ImportantStruct storage userStruct = whiteListStruct[sender];
         return (userStruct.paymentStatus, userStruct.amount);
     }
 
     receive() external payable {
-        payable(msg.sender).transfer(msg.value);
+        // optimized receive() to avoid possible exploits
+        revert DirectETHTransfersNotAllowed();
     }
 
     fallback() external payable {
-        payable(msg.sender).transfer(msg.value);
+        // optimized fallback() to avoid possible exploits
+        revert FallbackNotImplemented();
     }
 }
