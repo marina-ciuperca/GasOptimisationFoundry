@@ -74,4 +74,5 @@ SR 2335044 - refactor whiteTransfer function to combine assembly written require
 SR 2281520 - refactor transfer function to use assembly.
 SR 1442334 - remove unused payments struct, mapping, paymentHistory struct & array, updatePayment & getPayments functions.
 MC 641129 - removed Ownable inheritance, optimized the modifiers and receive and fallback functions, added custom errors
+MC 607092 - removed receive add fallback functions, replaced the 'senderOfTx' by 'caller()', removed comments
 ```
